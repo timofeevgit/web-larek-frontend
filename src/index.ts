@@ -1,18 +1,23 @@
 import './scss/styles.scss';
-import { ensureElement, createElement, cloneTemplate } from './utils/utils';
+
+import { PayMethod, IOrder, IProductItem, IContacts } from './types/index'
+
+import { Page } from './components/Page';
 import { EventEmitter } from './components/base/events';
-import { API_URL, CDN_URL } from "./utils/constants";
 import { WebLarekAPI } from './components/WebLarekAPI';
 import { AppState, CatalogChangeEvent } from './components/AppData';
-import { Page } from './components/Page';
+
 import { Card, CardBasket } from './components/common/card';
 import { Modal } from './components/common/modal';
 import { Basket } from './components/common/basket';
 import { Order } from './components/common/order';
 import { Contacts } from './components/common/contacts';
 import { Success } from './components/common/success';
-import { PayMethod, IOrder, IProductItem, IContacts } from './types/index'
 
+import { ensureElement, createElement, cloneTemplate } from './utils/utils';
+import { API_URL, CDN_URL } from "./utils/constants";
+
+// Темплейты
 const cardCatalogTemplate = ensureElement<HTMLTemplateElement>('#card-catalog');
 const cardPreviewTemplate = ensureElement<HTMLTemplateElement>('#card-preview');
 const cardBasketTemplate = ensureElement<HTMLTemplateElement>('#card-basket');
@@ -21,6 +26,7 @@ const orderTemplate = ensureElement<HTMLTemplateElement>('#order');
 const contactsTemplate = ensureElement<HTMLTemplateElement>('#contacts');
 const successTemplate = ensureElement<HTMLTemplateElement>('#success');
 
+// Экземпляры
 const events = new EventEmitter();
 const api = new WebLarekAPI(CDN_URL, API_URL);
 const appData = new AppState({}, events);
@@ -32,7 +38,7 @@ const basket = new Basket(cloneTemplate(basketTemplate), events);
 const order = new Order(cloneTemplate(orderTemplate), events);
 const contacts = new Contacts(cloneTemplate(contactsTemplate), events);
 
-//Изменились элементы каталога
+// Изменение айтемов каталога
 events.on<CatalogChangeEvent>('items:changed', () => {
     page.catalog = appData.catalog.map(item => {
         const card = new Card('card', cloneTemplate(cardCatalogTemplate), {
@@ -49,7 +55,7 @@ events.on<CatalogChangeEvent>('items:changed', () => {
     page.counter = appData.checkContentBasket().length;
 });
 
-// Предварительный просмотр карточки
+// Превью карточки - рендер модалки
 events.on('card:select', (item: IProductItem) => {
     appData.setPreview(item);
 });
@@ -59,9 +65,9 @@ events.on('preview:changed', (item: IProductItem) => {
         const card = new Card('card', cloneTemplate(cardPreviewTemplate), {
             onClick: () => {
                 if (appData.checkBasket(item)) {
-                    events.emit('webitem:delete', item);
+                    events.emit('product:delete', item);
                 } else {
-                    events.emit('webitem:added', item)
+                    events.emit('product:added', item)
                 }
             }
         });
@@ -82,19 +88,19 @@ events.on('preview:changed', (item: IProductItem) => {
     }
 });
 
-// Добавить товар в корзину
-events.on('webitem:added', (item: IProductItem) => {
+// Эвент добавления элемента каталога в корзину
+events.on('product:added', (item: IProductItem) => {
     appData.throwInBasket(item);
     modal.close();
 })
 
-// Удалить товар из корзины
-events.on('webitem:delete', (item: IProductItem) => {
+// Удаление товара из корзины
+events.on('product:delete', (item: IProductItem) => {
     appData.removeInBasket(item.id);
     modal.close();
 })
 
-// Открыть модальное окно с заказом
+// Открытие модалки с заказом
 events.on('order:open', () => {
     order.setClass('card');
     appData.setPayment('card');
@@ -107,7 +113,7 @@ events.on('order:open', () => {
     });
 });
 
-// Отправлена формы доставки
+// Отправка формы с адресом доставки
 events.on('order:submit', () => {
     modal.render({
         content: contacts.render({
@@ -119,7 +125,7 @@ events.on('order:submit', () => {
     });
 });
 
-// Открыть модальное окно с контактами
+// Открытие модалки с контактными данными
 events.on('contacts:open', () => {
     modal.render({
         content: contacts.render({
@@ -131,12 +137,12 @@ events.on('contacts:open', () => {
     });
 });
 
-// Выбрать способ оплаты
+// Выбор способа оплаты
 events.on('payment:changed', (data: { target: PayMethod }) => {
     appData.setPayment(data.target);
 });
 
-// Изменилось состояние валидации заказа
+// Изменение состояния валидации заказа
 events.on('formErrors:change', (errors: Partial<IOrder>) => {
     const { payment, address } = errors;
     order.valid = !payment && !address;
@@ -145,7 +151,7 @@ events.on('formErrors:change', (errors: Partial<IOrder>) => {
         .join('; ');
 });
 
-// Изменилось состояние валидации контактов
+// Измение состояния валидации контактных данных
 events.on('formContactsErrors:change', (errors: Partial<IContacts>) => {
     const { email, phone } = errors;
     contacts.valid = !email && !phone;
@@ -154,19 +160,19 @@ events.on('formContactsErrors:change', (errors: Partial<IContacts>) => {
         .join('; ');
 });
 
-// Изменилось одно из полей контактов
+// Измение одного из полей контактных данных
 events.on(/^contacts\..*:change/,
     (data: { field: keyof IContacts, value: string }) => {
         appData.setOrderField(data.field, data.value);
     });
 
-// Изменился адрес доставки
+// Измение адреса доставки
 events.on('order.address:change',
     (data: { value: string }) => {
         appData.setAddress(data.value);
     });
 
-// Открыть корзину
+// Открытие корзины
 events.on('basket:open', () => {
     modal.render({
         content: createElement<HTMLElement>('div', {}, [basket.render()]),
@@ -189,7 +195,7 @@ events.on('basket:change', () => {
    
 });
 
-// Отправить данные о пользователе на сервер
+// Отправка данные о пользователе на сервер
 events.on('contacts:submit', () => {
     appData.setOrder();
     api.orderProducts(appData.order)
@@ -210,7 +216,7 @@ events.on('contacts:submit', () => {
         });
 });
 
-// Изменились данные в корзине
+// Изменение данных в корзине
 events.on('basket:change', () => {
     page.counter = appData.checkContentBasket().length;
     basket.items = appData.checkContentBasket().map((product, index) => {
