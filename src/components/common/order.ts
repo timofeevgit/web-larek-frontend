@@ -24,11 +24,6 @@ export class Order extends Form<IOrder> {
     setClass(name: string): void {
         this._buttons.forEach((button) => {
             this.toggleClass(button, 'button_alt-active', button.name === name);
-            // if (button.name === name) {
-            //     button.classList.add('button_alt-active')
-            // } else {
-            //     button.classList.remove('button_alt-active');
-            // }
         });
     }
 
